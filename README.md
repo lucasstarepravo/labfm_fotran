@@ -1,2 +1,5 @@
-# labfm
-Simple LABFM code for testing convergence etc
+# LABFM
+The Local Anisotropic Basis Function Method development code
+
+See docs directory for details.
+
