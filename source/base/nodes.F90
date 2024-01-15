@@ -38,11 +38,17 @@ contains
 
      time = 0.0d0
      dx = (xmax - xmin)/dble(nx);dv=dx*dx   ! set particle spacing based on particles per domain side length
+     ! dx is the spacing between particles
      h0 = hovdx*dx;sup_size = ss*h0;h2=h0*h0;h3=h2*h0;ss2=sup_size*sup_size  !h, support 
+     !h0 is the stencil size
+     ! hovdx is the ratio between h and the spacing between particles
+     ! sup_size is a stencil with twice the size of the normal stencil (since ss=2[defined in labfm.F90]) which is used to place the
+     ! boundary particles
+     ! h[n] is h to the power of
      eta = 1.0d-8*h0;eta2 = eta*eta;eta3=eta*eta2
      hmin = h0
 
-     nss = ceiling(sup_size/dx) + 1
+     nss = ceiling(sup_size/dx) + 1 ! number of points to be added on the boundaries
      tmp_i = (nx+2*nss + 1)**2  !! np should equal this, if h=2dx. make the 11 bigger if bigger support... or 2*nss +1...
      npfb = (nx+1)**2    
      nb=0;nb_n=0 
@@ -832,4 +838,21 @@ flush(31);close(31)
      return
   end subroutine create_particles_disc  
 !! ------------------------------------------------------------------------------------------------
+  subroutine save_rp(var,np,k)
+   real(rkind),dimension(:,:), intent(in) :: var
+   integer, intent(in) :: np, k
+   integer :: i
+   integer, parameter :: unit_number = 102
+   character(len=60) :: filename
+
+   write(filename, '(A15,I0,A4)') 'lucas/coor/coor', k, '.csv'
+
+   open(unit=unit_number, file=filename, status='replace', action='write')
+
+   do i=1,np
+        write(unit_number, '(*(F10.7,","),F10.7)') var(i,1), var(i,2)
+   end do
+
+   close(unit=unit_number)
+end subroutine save_rp
 end module nodes

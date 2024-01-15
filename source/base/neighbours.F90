@@ -7,7 +7,7 @@ module neighbours
   implicit none
 
   private
-  public :: find_neighbours
+  public :: find_neighbours, save_ij_link
 
   integer(ikind), dimension(:), allocatable ::ist, ip, nc
   integer(ikind), dimension(:), allocatable :: cellpart,ic_count
@@ -296,4 +296,29 @@ contains
     if (j+1.lt.last)  call quicksort_neighbours(ii,a, j+1, last)
     
   end subroutine quicksort_neighbours
+!! ------------------------------------------------------------------------------------------------
+  subroutine save_ij_link(var, k_value, count)
+   integer(ikind),dimension(:,:), intent(in) :: var
+   integer, intent(in) :: k_value
+   integer, dimension(:), intent(in) :: count
+   integer :: i, j, numRows
+   integer, parameter :: unit_number = 37
+   character(len=60) :: filename
+
+   numRows = size(var,1)
+
+   write(filename, '(A17,I0,A4)') 'lucas/neigh/ij_link', k_value, '.csv'
+
+   open(unit=unit_number, file=filename, status='replace', action='write')
+   do i=1,numRows
+      write(unit_number, '(I10)', advance='no') var(i,1)
+      do j=2,count(i)
+         write(unit_number, '(A,I10)', advance='no') ",", var(i,j)
+      end do
+      write(unit_number, *)
+   end do
+
+   close(unit=unit_number)
+end subroutine save_ij_link
+
 end module neighbours

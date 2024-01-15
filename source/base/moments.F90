@@ -1194,4 +1194,62 @@ contains
              + 720.0d0)/720.0d0
   end function Laguerre6
 !! ------------------------------------------------------------------------------------------------
+  subroutine save_wxy(weights,k_value)
+   real(rkind),dimension(:,:,:), intent(in) :: weights
+   integer(ikind),intent(in) :: k_value
+   integer(ikind) :: len_one,len_two, i,j
+   integer, parameter :: unit_number1 = 57, unit_number2 = 44
+   character(len=40) :: filename1, filename2
+
+   len_one = size(weights,1)
+   len_two = size(weights,2)
+
+   write(filename1, '(A19,I0,A4)') 'lucas/weights/x/wx_', k_value, '.csv'
+   write(filename2, '(A19,I0,A4)') 'lucas/weights/y/wy_', k_value, '.csv'
+   open(unit=unit_number1, file=filename1, status='replace', action='write')
+   open(unit=unit_number2, file=filename2, status='replace', action='write')
+
+   do i=1,len_one
+      ! Debugging print statements
+      !print *, "Writing wx: ", weights(i,1,1)
+      !print *, "Writing wy: ", weights(i,1,2)
+
+      write(unit_number1, '(F20.8)', advance='no') weights(i,1,1)
+      write(unit_number2, '(F20.8)', advance='no') weights(i,1,2)
+      do j=2,len_two
+         write(unit_number1, '(A,F20.8)', advance='no') ",", weights(i,j,1)
+         write(unit_number2, '(A,F20.8)', advance='no') ",", weights(i,j,2)
+      end do
+      write(unit_number1, *)
+      write(unit_number2, *)
+   end do
+
+   close(unit=unit_number1)
+   close(unit=unit_number2)
+end subroutine save_wxy
+subroutine save_wlaplace(weights,k_value)
+   real(rkind),dimension(:,:), intent(in) :: weights
+   integer(ikind),intent(in) :: k_value
+   integer(ikind) :: len_one, len_two, i,j
+   integer, parameter :: unit_number = 11
+   character(len=40) :: filename
+
+   len_one = size(weights,1)
+   len_two = size(weights,2)
+
+   write(filename, '(A24,I0,A4)') 'lucas/weights/laplace/w_', k_value, '.csv'
+   open(unit=unit_number, file=filename, status='replace', action='write')
+
+   do i=1,len_one
+      !print *, "Writing wx: ", weights(i,1,1)
+
+      write(unit_number, '(F20.8)', advance='no') weights(i,1)
+      do j=2,len_two
+         write(unit_number, '(A,F20.8)', advance='no') ",", weights(i,j)
+      end do
+      write(unit_number, *)
+   end do
+
+   close(unit=unit_number)
+end subroutine save_wlaplace
 end module moments

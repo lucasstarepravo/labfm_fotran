@@ -73,4 +73,9 @@ clean:
 	rm -vf ./paraview_files/PART*
 	rm -vf ./plots/*.png
 	rm -vf ./plots/*.eps
+	rm -vf ./lucas/coor/*.csv
+	rm -vf ./lucas/neigh/*.csv
+	rm -vf ./lucas/weights/x/*.csv
+	rm -vf ./lucas/weights/y/*.csv
+	rm -vf ./lucas/weights/laplace/*.csv
 

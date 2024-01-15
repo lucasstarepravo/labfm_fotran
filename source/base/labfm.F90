@@ -23,17 +23,23 @@ program labfm
      call create_particles_banalytic
 !     call create_particles_bperiodic
 !     call create_particles_bperiodic_varh
+     call save_rp(rp,np,k)    ! In create_particles_banalytic.F90 file
 
      !! Build the neighbour lists
      call find_neighbours
      
+     
      !! Restrict stencil to the first XX neighbours
-!     ij_count(:)=70
+     ij_count(:)=70
+     call save_ij_link(ij_link, k, ij_count) ! In find_neighbours.F90 file
 
      !! Calculate all the interparticle weights and any moments we might need
      !! This is the key part of LABFM
      call calc_interparticle_weights
 !     call filter_coefficients
+
+     call save_wxy(ij_w_grad,k)       ! In moments.F90 file
+     call save_wlaplace(ij_w_lap,k)   ! In moments.F90 file
 
      !! Call subroutine to do whatever test we choose...
 !     call gradient_convergence_test
