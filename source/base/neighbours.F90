@@ -307,12 +307,16 @@ contains
 
    numRows = size(var,1)
 
-   write(filename, '(A17,I0,A4)') 'lucas/neigh/ij_link', k_value, '.csv'
-
+   write(filename, '(A19,I0,A4)') 'lucas/neigh/ij_link', k_value, '.csv'
    open(unit=unit_number, file=filename, status='replace', action='write')
+
+   
+   
    do i=1,numRows
       write(unit_number, '(I10)', advance='no') var(i,1)
       do j=2,count(i)
+         !print *, "count(i): ", count(i)
+         !print *, "var(i,:): ", var(i,:)
          write(unit_number, '(A,I10)', advance='no') ",", var(i,j)
       end do
       write(unit_number, *)

@@ -31,7 +31,7 @@ program labfm
      
      !! Restrict stencil to the first XX neighbours
      ij_count(:)=70
-     call save_ij_link(ij_link, k, ij_count) ! In find_neighbours.F90 file
+     !call save_ij_link(ij_link, k, ij_count) ! In find_neighbours.F90 file
 
      !! Calculate all the interparticle weights and any moments we might need
      !! This is the key part of LABFM
