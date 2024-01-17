@@ -855,4 +855,17 @@ flush(31);close(31)
 
    close(unit=unit_number)
 end subroutine save_rp
+subroutine save_dx(k)
+   integer, intent(in) :: k
+   integer :: i
+   integer, parameter :: unit_number = 103
+   character(len=60) :: filename
+
+   write(filename, '(A11,I0,A4)') 'lucas/dx/dx', k, '.csv'
+   print *, "dx: ", dx
+   open(unit=unit_number, file=filename, status='replace', action='write')
+
+   write(unit_number, '(*(F10.7,","),F10.7)') dx
+   close(unit=unit_number)
+end subroutine save_dx
 end module nodes
