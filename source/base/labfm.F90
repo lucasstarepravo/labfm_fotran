@@ -31,7 +31,13 @@ program labfm
      
      
      !! Restrict stencil to the first XX neighbours
-     ij_count(:)=70
+     mincount = minval(ij_count(:))
+     ij_count(:)=mincount
+
+     ! or do the following
+     !mincount = minval(ij_count(:))
+     !ij_count(:) = min(mincount,20)
+
      call save_ij_link(ij_link, k, ij_count) ! In find_neighbours.F90 file
 
      !! Calculate all the interparticle weights and any moments we might need
