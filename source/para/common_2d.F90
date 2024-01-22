@@ -53,5 +53,8 @@ module common_2d
   integer(ikind), dimension(:), allocatable :: ija
 
   real(rkind), bind(c) :: eta,eta2,eta3
+
+  !! Lucas Variables
+  integer(ikind) :: mincount
         
 end module common_2d
