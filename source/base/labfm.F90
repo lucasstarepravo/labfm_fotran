@@ -20,11 +20,11 @@ program labfm
        !! Create the particles and give initial values
      nx = nx*2  !! Increase the resolution by a factor of 2 each time...
 
-     call create_particles_banalytic
-!     call create_particles_bperiodic
+!     call create_particles_banalytic
+     call create_particles_shifted
 !     call create_particles_bperiodic_varh
-     call save_rp(rp,np,k)    ! In create_particles_banalytic.F90 file
-     call save_dx(k)
+!JK     call save_rp(rp,np,k)    ! In create_particles_banalytic.F90 file
+!JK     call save_dx(k)
 
      !! Build the neighbour lists
      call find_neighbours
@@ -38,15 +38,15 @@ program labfm
      !mincount = minval(ij_count(:))
      !ij_count(:) = min(mincount,20)
 
-     call save_ij_link(ij_link, k, ij_count) ! In find_neighbours.F90 file
+!JK     call save_ij_link(ij_link, k, ij_count) ! In find_neighbours.F90 file
 
      !! Calculate all the interparticle weights and any moments we might need
      !! This is the key part of LABFM
      call calc_interparticle_weights
 !     call filter_coefficients
 
-     call save_wxy(ij_w_grad,k)       ! In moments.F90 file
-     call save_wlaplace(ij_w_lap,k)   ! In moments.F90 file
+!JK     call save_wxy(ij_w_grad,k)       ! In moments.F90 file
+!JK     call save_wlaplace(ij_w_lap,k)   ! In moments.F90 file
 
      !! Call subroutine to do whatever test we choose...
 !     call gradient_convergence_test
