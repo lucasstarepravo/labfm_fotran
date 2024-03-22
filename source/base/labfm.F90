@@ -31,12 +31,12 @@ program labfm
      
      
      !! Restrict stencil to the first XX neighbours
-     mincount = minval(ij_count(:))
-     ij_count(:)=mincount
+     !mincount = minval(ij_count(:))
+     !ij_count(:)=mincount
 
      ! or do the following
-     !mincount = minval(ij_count(:))
-     !ij_count(:) = min(mincount,20)
+     mincount = minval(ij_count(:))
+     ij_count(:) = min(mincount,20)
 
      call save_ij_link(ij_link, k, ij_count) ! In find_neighbours.F90 file
 
@@ -44,6 +44,13 @@ program labfm
      !! This is the key part of LABFM
      call calc_interparticle_weights
 !     call filter_coefficients
+     !print *, "Dimensions of psiL: ", size(bvecL_mat, 1), size(bvecL_mat, 2)
+
+     call save_psi(bvecl_mat, bvecgx_mat, bvecgy_mat, k)
+     deallocate(bvecl_mat, bvecgx_mat, bvecgy_mat)
+
+     call save_amat(k)
+     deallocate(amat_save)
 
      call save_wxy(ij_w_grad,k)       ! In moments.F90 file
      call save_wlaplace(ij_w_lap,k)   ! In moments.F90 file
@@ -89,14 +96,14 @@ subroutine initial_setup
   lambda = (xmax - xmin)!/8.0d0
 
   !! Particles per smoothing length and supportsize/h
-  hovdx = 2.7;hovdx_av=hovdx
+  hovdx = 1.5;hovdx_av=hovdx
   
   !! For asymmetric stencils
   hovdx_max = hovdx
   hovdx_min = hovdx!2.0d0
   ss = 2.0
   nplink = 4.0*ss*ss*hovdx*hovdx  !! nplink allows for square stencil with side length 2*ss
-  tmp_noise = 0.5 !! How noisy!!
+  tmp_noise = 0.3 !! How noisy!!
   
   !! A Reynolds number?? (also parameter for some Poisson stuff)
   Re=1.0d1

@@ -31,6 +31,11 @@ module common_2d
   real(rkind),dimension(:,:),allocatable :: ij_w_lap,ij_w_hyp
   real(rkind),dimension(:),allocatable :: hqw     !! Hopkins quadrature weights
 
+  ! Lucas code lines
+  real(rkind),dimension(:,:) ,allocatable :: bvecgx_mat, bvecgy_mat, bvecl_mat 
+  real(rkind),dimension(:,:,:),allocatable :: amat_save
+  real(rkind), dimension(:,:),allocatable :: amat_save_reshape
+
   !! Parents and boundaries...
   integer(ikind),dimension(:),allocatable :: irelation,ibtype,vrelation
 

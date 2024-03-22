@@ -79,3 +79,7 @@ clean:
 	rm -vf ./lucas/weights/y/*.csv
 	rm -vf ./lucas/weights/laplace/*.csv
 	rm -vf ./lucas/dx/*.csv
+	rm -vf ./lucas/psi/laplace/*.csv
+	rm -vf ./lucas/psi/x/*.csv
+	rm -vf ./lucas/psi/y/*.csv
+	rm -vf ./lucas/amat/*.csv

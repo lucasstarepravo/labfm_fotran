@@ -70,8 +70,16 @@ contains
      !! Right hand sides, vectors of monomials and ABFs
      allocate(bvecGx(nsizeG),bvecGy(nsizeG),bvecL(nsizeG),gvec(nsizeG),xvec(nsizeG),bvechyp(nsizeG))
      bvecGx=0.0d0;bvecGy=0.0d0;bvecL=0.0d0;gvec=0.0d0;xvec=0.0d0;bvechyp=0.0d0
+     
      allocate(ipiv(nsizeG));ipiv=0
      allocate(rvec(nsizeG));rvec=0.0d0
+
+     allocate(bvecgx_mat(npfb,nsizeG),bvecgy_mat(npfb,nsizeG),bvecl_mat(npfb,nsizeG))  ! Lucas code lines to save psi vectors
+     bvecgx_mat=0.0d0;bvecgy_mat=0.0d0;bvecl_mat=0.0d0
+
+     allocate(amat_save(nsizeG,nsizeG,npfb)) ! Lucas code lines to save monomialxWeight matrices
+     amat_save=0.0d0
+      
 
      !! No parallelism for individual linear system solving...
      call openblas_set_num_threads(1)
@@ -160,6 +168,8 @@ contains
 !        cnum = cnum + rad
 
         amatGy = amatGx;amatL=amatGx;amathyp = amatGx !! copying LHS
+        amat_save(:,:,i) = amatGx
+
         
         !! Build RHS for ddx and ddy
         bvecGx=0.0d0;bvecGx(1)=1.0d0/hh       
@@ -168,14 +178,21 @@ contains
         !! Solve system for grad coefficients
         i1=0;i2=0                       
         call dgesv(nsize,1,amatGx,nsize,i1,bvecGx,nsize,i2)   
+        !print *, "Writing bvecGx: ", bvecGx
+        bvecgx_mat(i,:) = bvecGx
+        
 !        call svd_solve(amatGx,nsize,bvecGx)       
         i1=0;i2=0;nsize=nsizeG    
         call dgesv(nsize,1,amatGy,nsize,i1,bvecGy,nsize,i2)    
+        bvecgy_mat(i,:) = bvecGy
 
 
         !! Solve system for Lap coefficients
         bvecL(:)=0.0d0;bvecL(3)=1.0d0/hh/hh;bvecL(5)=1.0d0/hh/hh;i1=0;i2=0;nsize=nsizeG
         call dgesv(nsize,1,amatL,nsize,i1,bvecL,nsize,i2)
+        bvecl_mat(i,:) = bvecL
+
+
         
         !! Solve system for Hyperviscosity (regular viscosity if ORDER<4)
 #if order<=3
@@ -1252,4 +1269,92 @@ subroutine save_wlaplace(weights,k_value)
 
    close(unit=unit_number)
 end subroutine save_wlaplace
+
+subroutine save_psi(psiL, psix, psiy, k_value)
+   real(rkind), dimension(:,:), intent(in) :: psiL, psix, psiy
+   integer(ikind),intent(in) :: k_value
+   integer(ikind) :: len_one, len_two, i, j
+   integer, parameter :: unit_numberL = 12, unit_numberx = 13, unit_numbery = 14
+   character(len=40) :: filenameL, filenamex, filenamey
+
+   len_one = size(psiL,1)
+   len_two = size(psiL,2)
+
+   write(filenameL, '(A22,I0,A4)') 'lucas/psi/laplace/psi_', k_value, '.csv'
+   open(unit=unit_numberL, file=filenameL, status='replace', action='write')
+
+   write(filenamey, '(A16,I0,A4)') 'lucas/psi/y/psi_', k_value, '.csv'
+   open(unit=unit_numbery, file=filenamey, status='replace', action='write')
+
+   write(filenamex, '(A16,I0,A4)') 'lucas/psi/x/psi_', k_value, '.csv'
+   open(unit=unit_numberx, file=filenamex, status='replace', action='write')
+
+
+   do i=1,len_one
+
+      write(unit_numberL, '(F20.8)', advance='no') psiL(i,1)
+      write(unit_numberx, '(F20.8)', advance='no') psix(i,1)
+      write(unit_numbery, '(F20.8)', advance='no') psiy(i,1)
+
+      do j=2,len_two
+         write(unit_numberL, '(A,F20.8)', advance='no') ",", psiL(i,j)
+         write(unit_numberx, '(A,F20.8)', advance='no') ",", psix(i,j)
+         write(unit_numbery, '(A,F20.8)', advance='no') ",", psiy(i,j)
+      end do
+      write(unit_numberL, *)
+      write(unit_numberx, *)
+      write(unit_numbery, *)
+   end do
+
+   close(unit=unit_numberL)
+   close(unit=unit_numberx)
+   close(unit=unit_numbery)
+end subroutine save_psi
+
+subroutine amat_flattening
+   integer(ikind) :: i,j,z
+   integer(ikind):: rows, cols, depth
+
+   rows = size(amat_save,1)
+   cols = size(amat_save,2)
+   depth = size(amat_save,3)
+
+   allocate(amat_save_reshape(depth, rows*cols))
+
+   do z = 1, depth
+      do j = 1, cols
+         do i = 1, rows
+            amat_save_reshape(z, (i-1)*cols + j) = amat_save(i,j,z)
+         end do
+      end do
+   end do
+end subroutine amat_flattening 
+
+subroutine save_amat(k_value)
+   integer(ikind),intent(in) :: k_value
+   integer(ikind) :: len_one, len_two, i, j
+   integer, parameter :: unit_number = 7
+   character(len=40) :: filename
+
+   call amat_flattening
+
+   len_one = size(amat_save_reshape,1)
+   len_two = size(amat_save_reshape,2)
+
+
+   write(filename, '(A16,I0,A4)') 'lucas/amat/amat_', k_value, '.csv'
+   open(unit=unit_number, file=filename, status='replace', action='write')
+
+   do i = 1, len_one
+      write(unit_number, '(F20.8)', advance='no') amat_save_reshape(i,1)
+      do j = 2,len_two
+         write(unit_number, '(A,F20.8)', advance='no') ",", amat_save_reshape(i,j)
+      end do
+      write(unit_number, *)
+   end do
+
+   close(unit=unit_number)
+   deallocate(amat_save_reshape)
+
+end subroutine save_amat
 end module moments
