@@ -1292,14 +1292,14 @@ subroutine save_psi(psiL, psix, psiy, k_value)
 
    do i=1,len_one
 
-      write(unit_numberL, '(F20.8)', advance='no') psiL(i,1)
-      write(unit_numberx, '(F20.8)', advance='no') psix(i,1)
-      write(unit_numbery, '(F20.8)', advance='no') psiy(i,1)
+      write(unit_numberL, '(F25.10)', advance='no') psiL(i,1)
+      write(unit_numberx, '(F25.10)', advance='no') psix(i,1)
+      write(unit_numbery, '(F25.10)', advance='no') psiy(i,1)
 
       do j=2,len_two
-         write(unit_numberL, '(A,F20.8)', advance='no') ",", psiL(i,j)
-         write(unit_numberx, '(A,F20.8)', advance='no') ",", psix(i,j)
-         write(unit_numbery, '(A,F20.8)', advance='no') ",", psiy(i,j)
+         write(unit_numberL, '(A,F25.10)', advance='no') ",", psiL(i,j)
+         write(unit_numberx, '(A,F25.10)', advance='no') ",", psix(i,j)
+         write(unit_numbery, '(A,F25.10)', advance='no') ",", psiy(i,j)
       end do
       write(unit_numberL, *)
       write(unit_numberx, *)
@@ -1346,9 +1346,9 @@ subroutine save_amat(k_value)
    open(unit=unit_number, file=filename, status='replace', action='write')
 
    do i = 1, len_one
-      write(unit_number, '(F20.8)', advance='no') amat_save_reshape(i,1)
+      write(unit_number, '(F25.10)', advance='no') amat_save_reshape(i,1)
       do j = 2,len_two
-         write(unit_number, '(A,F20.8)', advance='no') ",", amat_save_reshape(i,j)
+         write(unit_number, '(A,F25.10)', advance='no') ",", amat_save_reshape(i,j)
       end do
       write(unit_number, *)
    end do

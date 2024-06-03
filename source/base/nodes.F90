@@ -40,6 +40,7 @@ contains
      dx = (xmax - xmin)/dble(nx);dv=dx*dx   ! set particle spacing based on particles per domain side length
      ! dx is the spacing between particles
      h0 = hovdx*dx;sup_size = ss*h0;h2=h0*h0;h3=h2*h0;ss2=sup_size*sup_size  !h, support 
+     
      !h0 is the stencil size
      ! hovdx is the ratio between h and the spacing between particles
      ! sup_size is a stencil with twice the size of the normal stencil (since ss=2[defined in labfm.F90]) which is used to place the
@@ -869,4 +870,18 @@ subroutine save_dx(k)
    write(unit_number, '(*(F10.7,","),F10.7)') dx
    close(unit=unit_number)
 end subroutine save_dx
+subroutine save_h(k)
+   integer, intent(in) :: k
+   integer :: i
+   integer, parameter :: unit_number = 104
+   character(len=60) :: filename
+
+   write(filename, '(A9,I0,A4)') 'lucas/h/h', k, '.csv'
+   open(unit=unit_number, file=filename, status='replace', action='write')
+
+   !print *, "h: ", h0
+   write(unit_number, '(*(F15.12,","),F15.12)') h0
+   
+   close(unit=unit_number)
+end subroutine save_h
 end module nodes

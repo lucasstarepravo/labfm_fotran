@@ -61,5 +61,6 @@ module common_2d
 
   !! Lucas Variables
   integer(ikind) :: mincount
+  
         
 end module common_2d

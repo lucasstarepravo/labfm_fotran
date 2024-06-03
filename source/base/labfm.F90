@@ -26,6 +26,8 @@ program labfm
      call save_rp(rp,np,k)    ! In create_particles_banalytic.F90 file
      call save_dx(k)
 
+     call save_h(k)
+
      !! Build the neighbour lists
      call find_neighbours
      
@@ -36,7 +38,7 @@ program labfm
 
      ! or do the following
      mincount = minval(ij_count(:))
-     ij_count(:) = min(mincount,20)
+     !ij_count(:) = min(mincount,20)
 
      call save_ij_link(ij_link, k, ij_count) ! In find_neighbours.F90 file
 
