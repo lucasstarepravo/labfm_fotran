@@ -851,12 +851,12 @@ flush(31);close(31)
    open(unit=unit_number, file=filename, status='replace', action='write')
 
    do i=1,np
-        write(unit_number, '(*(F10.7,","),F10.7)') var(i,1), var(i,2)
+        write(unit_number, '(*(ES20.12,","),ES20.12)') var(i,1), var(i,2)
    end do
 
    close(unit=unit_number)
 end subroutine save_rp
-
+!! ------------------------------------------------------------------------------------------------
 subroutine save_dx(k)
    integer, intent(in) :: k
    integer :: i

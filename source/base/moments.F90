@@ -1231,11 +1231,11 @@ contains
       !print *, "Writing wx: ", weights(i,1,1)
       !print *, "Writing wy: ", weights(i,1,2)
 
-      write(unit_number1, '(F20.8)', advance='no') weights(i,1,1)
-      write(unit_number2, '(F20.8)', advance='no') weights(i,1,2)
+      write(unit_number1, '(F20.12)', advance='no') weights(i,1,1)
+      write(unit_number2, '(F20.12)', advance='no') weights(i,1,2)
       do j=2,len_two
-         write(unit_number1, '(A,F20.8)', advance='no') ",", weights(i,j,1)
-         write(unit_number2, '(A,F20.8)', advance='no') ",", weights(i,j,2)
+         write(unit_number1, '(A,F20.12)', advance='no') ",", weights(i,j,1)
+         write(unit_number2, '(A,F20.12)', advance='no') ",", weights(i,j,2)
       end do
       write(unit_number1, *)
       write(unit_number2, *)
@@ -1244,6 +1244,7 @@ contains
    close(unit=unit_number1)
    close(unit=unit_number2)
 end subroutine save_wxy
+!! ------------------------------------------------------------------------------------------------
 subroutine save_wlaplace(weights,k_value)
    real(rkind),dimension(:,:), intent(in) :: weights
    integer(ikind),intent(in) :: k_value
@@ -1260,9 +1261,9 @@ subroutine save_wlaplace(weights,k_value)
    do i=1,len_one
       !print *, "Writing wx: ", weights(i,1,1)
 
-      write(unit_number, '(F20.8)', advance='no') weights(i,1)
+      write(unit_number, '(ES24.16)', advance='no') weights(i,1)
       do j=2,len_two
-         write(unit_number, '(A,F20.8)', advance='no') ",", weights(i,j)
+         write(unit_number, '(A,ES24.16)', advance='no') ",", weights(i,j)
       end do
       write(unit_number, *)
    end do
