@@ -842,19 +842,44 @@ flush(31);close(31)
   subroutine save_rp(var,np,k)
    real(rkind),dimension(:,:), intent(in) :: var
    integer, intent(in) :: np, k
-   integer :: i
+   integer :: i, j, total_p
    integer, parameter :: unit_number = 102
    character(len=60) :: filename
 
-   write(filename, '(A15,I0,A4)') 'lucas/coor/coor', k, '.csv'
 
-   open(unit=unit_number, file=filename, status='replace', action='write')
+   j = 0
+   total_p = 0
 
-   do i=1,np
-        write(unit_number, '(*(ES20.12,","),ES20.12)') var(i,1), var(i,2)
+   do while (total_p < np)
+      write(filename, '(A15,I0,A1,I0,A4)') 'lucas/coor/coor', k, '_', j, '.csv'
+
+      open(unit=(unit_number+j), file=filename, status='replace', action='write')
+      do i = 1, 10000
+         total_p = total_p + 1
+         if (total_p <= np) then 
+            write(unit_number+j, '(*(ES20.12,","),ES20.12)') var(total_p,1), var(total_p,2)
+         else 
+            exit
+         end if
+      end do
+      close(unit=(unit_number+j))
+      j = j + 1
    end do
+            
 
-   close(unit=unit_number)
+
+   !do i=1,np
+   !   if (j.ge.1000) then
+
+   !   end if 
+   !     write(unit_number, '(*(ES20.12,","),ES20.12)') var(i,1), var(i,2)
+
+        
+   
+   
+   !end do
+
+   !close(unit=unit_number)
 end subroutine save_rp
 !! ------------------------------------------------------------------------------------------------
 subroutine save_dx(k)

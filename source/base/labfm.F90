@@ -15,7 +15,7 @@ program labfm
   call initial_setup
 
   !! Loop over a range of resolutions
-  nx = 5!! 1/2 the initial resolution
+  nx = 100!! 1/2 the initial resolution
   do k=1,16
        !! Create the particles and give initial values
      nx = nx*2  !! Increase the resolution by a factor of 2 each time...
@@ -44,29 +44,30 @@ program labfm
 
      !! Calculate all the interparticle weights and any moments we might need
      !! This is the key part of LABFM
-     call calc_interparticle_weights
+     !call calc_interparticle_weights
 !     call filter_coefficients
      !print *, "Dimensions of psiL: ", size(bvecL_mat, 1), size(bvecL_mat, 2)
 
-     call save_psi(bvecl_mat, bvecgx_mat, bvecgy_mat, k)
-     deallocate(bvecl_mat, bvecgx_mat, bvecgy_mat)
+     !call save_psi(bvecl_mat, bvecgx_mat, bvecgy_mat, k)
+     !deallocate(bvecl_mat, bvecgx_mat, bvecgy_mat)
 
-     call save_amat(k)
-     deallocate(amat_save)
+     !call save_amat(k)
+     !deallocate(amat_save)
 
-     call save_wxy(ij_w_grad,k)       ! In moments.F90 file
-     call save_wlaplace(ij_w_lap,k)   ! In moments.F90 file
+     !call save_wxy(ij_w_grad,k)       ! In moments.F90 file
+     !call save_wlaplace(ij_w_lap,k)   ! In moments.F90 file
 
      !! Call subroutine to do whatever test we choose...
 !     call gradient_convergence_test
-     call laplacian_convergence_test
+     !call laplacian_convergence_test
 !     call freq_response_test             !! Set nx=~80 and comment out nx=nx*2 above
 !     call filter_test
 !     call vortex_resolve_test
 !     call stability_test
 !     call solve_burgers_equation
 
-     call output_uv(k)
+     !call output_uv(k)
+     print *, npfb
 
      !! Deallocate particle properties and neighbour lists
      deallocate(rp,u);if(allocated(v)) deallocate(v);if(allocated(w)) deallocate(w)

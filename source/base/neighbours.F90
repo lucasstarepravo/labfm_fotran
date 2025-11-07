@@ -297,30 +297,59 @@ contains
     
   end subroutine quicksort_neighbours
 !! ------------------------------------------------------------------------------------------------
-  subroutine save_ij_link(var, k_value, count)
+  subroutine save_ij_link(var, k_value, num_neigh)
    integer(ikind),dimension(:,:), intent(in) :: var
    integer, intent(in) :: k_value
-   integer, dimension(:), intent(in) :: count
-   integer :: i, j, numRows
+   integer, dimension(:), intent(in) :: num_neigh
+   integer :: i, j, numRows, numCols, ii, total_p
    integer, parameter :: unit_number = 37
    character(len=60) :: filename
 
-   numRows = size(var,1)
+   numRows = size(var, 1)
+   numCols = size(var, 2)
 
-   write(filename, '(A19,I0,A4)') 'lucas/neigh/ij_link', k_value, '.csv'
-   open(unit=unit_number, file=filename, status='replace', action='write')
+
+   j = 0
+   total_p = 0
+
+   do while (total_p < numRows)
+      write(filename, '(A19,I0,A1,I0,A4)') 'lucas/neigh/ij_link', k_value, '_', j, '.csv'
+
+      open(unit=(unit_number+j), file=filename, status='replace', action='write')
+
+      do i = 1, 10000
+         total_p = total_p + 1
+         if (total_p <= numRows) then 
+            write((unit_number+j), '(I10)', advance='no') var(total_p,1)
+            do ii=2,num_neigh(total_p)
+               write((unit_number+j), '(A,I10)', advance='no') ",", var(total_p,ii)
+            end do
+            write((unit_number+j), *)
+         else 
+            exit
+         end if
+      end do
+      close(unit=(unit_number+j))
+      j = j + 1
+   end do
+
+
+
+   !write(filename, '(A19,I0,A1,I0,A4)') 'lucas/neigh/ij_link', k_value, '_',j, '.csv'
+   
+   !open(unit=unit_number, file=filename, status='replace', action='write')
 
    
    
-   do i=1,numRows
-      write(unit_number, '(I10)', advance='no') var(i,1)
-      do j=2,count(i)
+   !do i=1,numRows
+   !   write(unit_number, '(I10)', advance='no') var(i,1)
+   !   do j=2,num_neigh(i)
          !print *, "count(i): ", count(i)
          !print *, "var(i,:): ", var(i,:)
-         write(unit_number, '(A,I10)', advance='no') ",", var(i,j)
-      end do
-      write(unit_number, *)
-   end do
+   !      write(unit_number, '(A,I10)', advance='no') ",", var(i,j)
+   !   end do
+   !   write(unit_number, *)
+   !end do
 
    close(unit=unit_number)
 end subroutine save_ij_link
