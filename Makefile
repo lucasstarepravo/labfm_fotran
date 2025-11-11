@@ -84,3 +84,4 @@ clean:
 	rm -vf ./lucas/psi/y/*.csv
 	rm -vf ./lucas/amat/*.csv
 	rm -vf ./lucas/h/*.csv
+	rm -vf ./lucas/neigh_rp/*
