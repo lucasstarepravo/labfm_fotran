@@ -226,8 +226,10 @@ contains
           rij(:) = ri(:)-rp(j,:)
           rr2tmp=dot_product(rij,rij)  !! Distance squared
           if(rr2tmp .le. stencilsize2)then              
-             ij_count(ii)=ij_count(ii)+1;              !! Increment count
-             ij_link(ii,ij_count(ii))=j                !! add to list  
+             if ((ij_count(ii) + 1).le.nplink) then 
+                 ij_count(ii)=ij_count(ii)+1;              !! Increment count
+                 ij_link(ii,ij_count(ii))=j                !! add to list  
+             endif
           endif          
        end do
     end if
@@ -314,7 +316,7 @@ contains
    
    do i=1,numRows
       write(unit_number, '(I10)', advance='no') var(i,1)
-      do j=2,count(i)
+      do j=2,20!count(i)
          !print *, "count(i): ", count(i)
          !print *, "var(i,:): ", var(i,:)
          write(unit_number, '(A,I10)', advance='no') ",", var(i,j)

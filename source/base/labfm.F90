@@ -38,7 +38,7 @@ program labfm
 
      ! or do the following
      mincount = minval(ij_count(:))
-     ij_count(:) = min(mincount,20)
+     !ij_count(:) = min(mincount,30)
 
      call save_ij_link(ij_link, k, ij_count) ! In find_neighbours.F90 file
 
@@ -67,6 +67,9 @@ program labfm
 !     call solve_burgers_equation
 
      call output_uv(k)
+
+!     print *, 'hovdx', hovdx
+!     print *, 'ss', ss
 
      !! Deallocate particle properties and neighbour lists
      deallocate(rp,u);if(allocated(v)) deallocate(v);if(allocated(w)) deallocate(w)
@@ -105,7 +108,7 @@ subroutine initial_setup
   hovdx_min = hovdx!2.0d0
   ss = 2.0
   nplink = 4.0*ss*ss*hovdx*hovdx  !! nplink allows for square stencil with side length 2*ss
-  tmp_noise = 0.3 !! How noisy!!
+  tmp_noise = 1.0 !! How noisy!!
   
   !! A Reynolds number?? (also parameter for some Poisson stuff)
   Re=1.0d1
