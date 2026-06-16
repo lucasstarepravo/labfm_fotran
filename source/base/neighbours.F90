@@ -7,7 +7,7 @@ module neighbours
   implicit none
 
   private
-  public :: find_neighbours, save_ij_link
+  public :: find_neighbours, save_ij_link, save_positions
 
   integer(ikind), dimension(:), allocatable ::ist, ip, nc
   integer(ikind), dimension(:), allocatable :: cellpart,ic_count
@@ -326,5 +326,25 @@ contains
 
    close(unit=unit_number)
 end subroutine save_ij_link
+
+
+subroutine save_positions(k)
+   integer :: i, k
+   integer, parameter :: unit_number = 37
+   character(len=60) :: filename
+
+   write(filename, '(A15,I0,A4)') 'lucas/positions', k, '.csv'
+   open(unit=unit_number, file=filename, status='replace', action='write')
+
+   do i=1,npfb
+      write(unit_number, '(ES15.8,A1,ES15.8,A1)', advance='no') rp(i,1), ',', rp(i,2), ','
+      write(unit_number, '(ES15.8)') phi_vec(i)
+   end do
+
+
+   deallocate(phi_vec)
+
+   close(unit=unit_number)
+end subroutine save_positions
 
 end module neighbours

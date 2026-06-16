@@ -39,6 +39,11 @@ ifeq ($(order),12)
 FFLAGS += -Dorder=12
 endif
 
+# This is used to define whether there is a cylinder in the middle of the domain
+ifeq ($(cyl),1)
+FFLAGS += -Dcyl=1
+endif
+
 SUB_DIRS := para base
 SRC_DIR  := $(addprefix source/,$(SUB_DIRS))
 
@@ -47,7 +52,7 @@ OBJ_FILES := obj/kind_parameters.o obj/common_parameter.o obj/common_2d.o
 OBJ_FILES += obj/sphtools.o obj/analytic_functions.o obj/neighbours.o
 OBJ_FILES += obj/svd_lib.o
 OBJ_FILES += obj/nodes.o obj/moments.o
-OBJ_FILES += obj/derivatives.o
+OBJ_FILES += obj/derivatives.o obj/linear_solver.o obj/poisson_inhouse.o
 OBJ_FILES += obj/basic_convergence_studies.o  
 OBJ_FILES += obj/burgers_equation.o 
 OBJ_FILES += $(foreach sdir,$(SRC_DIR),$(patsubst $(sdir)/%.F90,obj/%.o,$(wildcard $(sdir)/*.F90)))
@@ -84,3 +89,4 @@ clean:
 	rm -vf ./lucas/psi/y/*.csv
 	rm -vf ./lucas/amat/*.csv
 	rm -vf ./lucas/h/*.csv
+	rm -vf ./lucas/*.csv

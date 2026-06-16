@@ -32,7 +32,7 @@ contains
      !! Initialise variable u to an analytic function
      !! irelation is unallocated, to indicate some analytic function is needed for boundaries
      integer(ikind) :: i,tmp_i,tmp_j,j,imp,nss
-     real(rkind) :: ns
+     real(rkind) :: ns, cyl_rad
      real(rkind),dimension(:,:),allocatable :: rptmp
      real(rkind),dimension(:),allocatable :: htmp
 
@@ -91,6 +91,22 @@ contains
         u(i) = ftn(rp(i,1),rp(i,2))
      end do
      !$OMP END PARALLEL DO
+
+      ! plot the nodes to see how they are arranged
+      !do i=1,np
+
+
+     ! Now create cylinder with boundary particles
+     ! First determine the radius of the cylinder
+     cyl_rad = 0.01d0
+     ! nss is the number of points to be added to the boundary
+     ! make sure if nss is number of layers in the boundary or number of points along a boundary (i.e. along a wall)
+
+     ! Second determine the number of layers you'll want for the boundary
+     ! Remove the nodes which are up to the layer of nodes you'll want to the boundary
+     ! Based on dx, the number of layers and the radius of the circle, populate the nodes
+     ! remember to flag the boundary nodes as boundary
+     
      
 
 open(unit=30,file='fort.30')
@@ -456,13 +472,15 @@ flush(30);close(30)
     integer(ikind) :: i,j,imp,k,xbcond,ybcond
     integer(ikind) :: nmirror,nmirror_esti
       
-    nmirror_esti = npfb  ! Estimate for max number of mirrors
+!    nmirror_esti = npfb  ! Estimate for max number of mirrors
+    nmirror_esti = size(rp, 1) - npfb 
     allocate(irelation(npfb+1:npfb+nmirror_esti))      
     allocate(vrelation(npfb+1:npfb+nmirror_esti))    
     imp = 0     
          
     !! Periodic and symmetric conditions    
-    xbcond = 2;ybcond=1
+!    xbcond = 2;ybcond=1
+    xbcond = 1;ybcond=1
 
     do i=1,npfb
        
@@ -839,6 +857,109 @@ flush(31);close(31)
      return
   end subroutine create_particles_disc  
 !! ------------------------------------------------------------------------------------------------
+!! There are npfb particles in the domain
+!! 1 to nb_n are Neumann
+!! nb_n + 1 to nb are Dirichlet
+!! 1 to nb are "solid boundary"
+!! nb+1 to npfb are "internal"
+!! npfb + 1 to npfb + nb_n  are for satisfaction of Neumann bcs
+!! npfb + nb_n + 1 to np are for other BCs (e.g. periodic, analytic...)
+
+subroutine create_particles_bperiodic_cyl
+     !! Periodic outer boundaries + Dirichlet cylinder obstacle.
+     !! Fluid particles at half-grid offsets (as in bperiodic).
+     !! Ordering: 1..nb = cylinder Dirichlet, nb+1..npfb = internal,
+     !!           npfb+1..np_mirror = periodic ghosts (irelation),
+     !!           np_mirror+1..np = cylinder ghost layers (analytic).
+     integer(ikind) :: i, tmp_i, tmp_j, j, imp, nss, np_mirror
+     integer(ikind) :: n_ring
+     real(rkind) :: ns, rp_x, rp_y
+     real(rkind) :: cyl_rad, cyl_x, cyl_y, ring_rad, theta, twopi, dist2
+
+     time = 0.0d0
+     kappa = 0.0d0
+     dx = (xmax - xmin)/dble(nx+1); dv = dx*dx   ! half-grid offset (no particles ON boundary)
+     h0 = hovdx*dx; sup_size = ss*h0; h2=h0*h0; h3=h2*h0; ss2=sup_size*sup_size
+     eta = 1.0d-8*h0; eta2 = eta*eta; eta3 = eta*eta2
+     hmin = h0
+
+     nss = ceiling(sup_size/dx) + 1
+     twopi = 8.0d0*atan(1.0d0)
+     cyl_x = 0.5d0*(xmin + xmax)
+     cyl_y = 0.5d0*(ymin + ymax)
+     cyl_rad = 0.2d0
+
+     ! Over-allocate: fluid + mirrors + cylinder surface + cylinder ghosts
+     tmp_i = 2*(nx + 2*nss + 1)**2 + nss*nint(twopi*cyl_rad/dx + 1)
+     allocate(rp(tmp_i, dims))
+     allocate(h(tmp_i)); h = h0
+
+     imp = 0
+
+     !! ---- 1. Cylinder surface: Dirichlet (1..nb) ----
+     nb_n = 0
+     n_ring = max(nint(twopi*cyl_rad/dx), 1)
+     do j = 1, n_ring
+        theta = twopi*dble(j-1)/dble(n_ring)
+        imp = imp + 1
+        rp(imp, 1) = cyl_x + cyl_rad*cos(theta)
+        rp(imp, 2) = cyl_y + cyl_rad*sin(theta)
+     end do
+     nb = imp
+
+     !! ---- 2. Internal fluid at half-grid, cylinder carved out (nb+1..npfb) ----
+     call random_seed()
+     do i = 1, (nx+1)**2
+        tmp_i = (i-1)/(nx+1) + 1
+        tmp_j = i - (tmp_i-1)*(nx+1)
+        call random_number(ns); ns = (ns - 0.5d0)*dx*tmp_noise
+        rp_x = xmin + 0.5d0*dx + dble(tmp_i-1)*dx + ns
+        call random_number(ns); ns = (ns - 0.5d0)*dx*tmp_noise
+        rp_y = ymin + 0.5d0*dx + dble(tmp_j-1)*dx + ns
+        dist2 = (rp_x - cyl_x)**2 + (rp_y - cyl_y)**2
+        if (dist2 <= cyl_rad*cyl_rad) cycle
+        imp = imp + 1
+        rp(imp, 1) = rp_x
+        rp(imp, 2) = rp_y
+     end do
+     npfb = imp
+
+     !! ---- 3. Periodic outer ghosts via create_mirror_particles ----
+     !! NB: requires xbcond=1, ybcond=1 in create_mirror_particles
+     call create_mirror_particles
+     np_mirror = np   ! save count after mirrors
+
+
+     !! ---- 4. Set field values ----
+     allocate(u(np))
+     allocate(v(np)); allocate(w(np))
+     !$OMP PARALLEL DO
+     do i = 1, npfb
+        u(i) = ftn(rp(i,1), rp(i,2))
+     end do
+     !$OMP END PARALLEL DO
+
+!     !$OMP PARALLEL DO PRIVATE(j)
+!     do i = npfb+1, np_mirror
+!        j = irelation(i)
+!        u(i) = u(j)
+!     end do
+!     !$OMP END PARALLEL DO
+
+     !$OMP PARALLEL DO
+     do i = np_mirror+1, np
+        u(i) = ftn(rp(i,1), rp(i,2))
+     end do
+     !$OMP END PARALLEL DO
+
+     open(unit=30, file='fort.30')
+     do i = 1, np
+        write(30,*) rp(i,:)
+     end do
+     flush(30); close(30)
+     return
+  end subroutine create_particles_bperiodic_cyl
+  ! ----------------------------------------------------------------------------------------
   subroutine save_rp(var,np,k)
    real(rkind),dimension(:,:), intent(in) :: var
    integer, intent(in) :: np, k

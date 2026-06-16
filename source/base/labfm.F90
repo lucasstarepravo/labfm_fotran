@@ -15,12 +15,14 @@ program labfm
   call initial_setup
 
   !! Loop over a range of resolutions
-  nx = 5!! 1/2 the initial resolution
+  nx = 10!! 1/2 the initial resolution
   do k=1,16
        !! Create the particles and give initial values
      nx = nx*2  !! Increase the resolution by a factor of 2 each time...
 
-     call create_particles_banalytic
+!     call create_particles_banalytic
+     call create_particles_bperiodic_cyl
+!     call save_positions(k)
 !     call create_particles_bperiodic
 !     call create_particles_bperiodic_varh
      call save_rp(rp,np,k)    ! In create_particles_banalytic.F90 file
@@ -59,12 +61,15 @@ program labfm
 
      !! Call subroutine to do whatever test we choose...
 !     call gradient_convergence_test
-     call laplacian_convergence_test
+!     call laplacian_convergence_test
 !     call freq_response_test             !! Set nx=~80 and comment out nx=nx*2 above
 !     call filter_test
 !     call vortex_resolve_test
 !     call stability_test
 !     call solve_burgers_equation
+     call poisson_solver
+
+     call save_positions(k)
 
      call output_uv(k)
 
@@ -92,7 +97,8 @@ subroutine initial_setup
   use common_2d
 
   !! Domain size
-  xmin = -0.5d0;xmax = 0.5d0!*2.0d0*pi
+  !xmin = -0.5d0;xmax = 0.5d0!*2.0d0*pi
+  xmin = 0.0d0;xmax = 1.0d0
   ymin=xmin;ymax=xmax
   !! Time begins at zero
   time = 0.0d0
@@ -108,10 +114,10 @@ subroutine initial_setup
   hovdx_min = hovdx!2.0d0
   ss = 2.0
   nplink = 4.0*ss*ss*hovdx*hovdx  !! nplink allows for square stencil with side length 2*ss
-  tmp_noise = 1.0 !! How noisy!!
+  tmp_noise = 0.5 !! How noisy!!
   
   !! A Reynolds number?? (also parameter for some Poisson stuff)
-  Re=1.0d1
+  Re=1.0d0
 
   !! Powers of pi and wavelength  
   pi2 = pi*pi;pi3=pi*pi2;pi4=pi3*pi

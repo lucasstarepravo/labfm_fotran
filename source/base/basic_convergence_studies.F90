@@ -5,6 +5,7 @@ module basic_convergence_studies
   use analytic_functions
   use derivatives
   use omp_lib
+  use poisson_inhouse
   implicit none
 
 contains
@@ -77,7 +78,7 @@ v(i)=tmp
         !! Calculate the L2 norm
         tmp2 = d2fdx2(x,y) + d2fdy2(x,y);tmp = lap(i) - tmp2
         l2_l = l2_l + tmp*tmp
-v(i)=lap(i)
+         v(i)=lap(i)
         e2_l = e2_l + tmp2*tmp2
      end do
      !$OMP END PARALLEL DO
@@ -325,4 +326,47 @@ stop
      stop         
      return
   end subroutine filter_test 
+! ----------------------------------------------------------------------------------------
+subroutine poisson_solver
+
+   integer(ikind) :: i,k,j
+   
+   real(rkind) :: x,y,r,theta,l2,e2,tmp,tmp2
+   
+   real(rkind),allocatable,dimension(:) :: rhs_ftn,t_vec
+   
+   allocate(rhs_ftn(npfb),phi_vec(npfb),t_vec(npfb));rhs_ftn=0.0d0;phi_vec=0.0d0;t_vec=0.0d0
+   do i=1,npfb
+   x=rp(i,1);y=rp(i,2);r=sqrt(x**2+y**2);
+          
+       rhs_ftn(i)=d2fdx2(x,y)+d2fdy2(x,y)
+   end do
+   
+   call solve_poisson_inhouse_dir(phi_vec,rhs_ftn, u(1:npfb))
+   l2 = 0.0d0;e2=0.0d0
+     !$OMP PARALLEL DO REDUCTION(+:l2,e2) PRIVATE(tmp,x,y,tmp2,r,theta)
+     do i=1,npfb
+        x = rp(i,1);y=rp(i,2);r=sqrt(x**2+y**2);
+          
+        !! Calculate the L2 norm
+        tmp2 = ftn(x,y);tmp = phi_vec(i) - tmp2
+        l2 = l2 + tmp*tmp
+        e2 = e2 + tmp2*tmp2
+
+     end do
+     !$OMP END PARALLEL DO
+     !! sqrt norms
+     l2 = sqrt(l2/npfb)/sqrt(e2/npfb)
+     
+
+
+     !! Output to file and flush
+     write(1,*) dx/lambda,hovdx_av,l2 !h0/lambda,hovdx_av !kl/(nx*pi)
+     write(6,*) npfb,hovdx_av,l2, 24.0*pi/(25.0*dble(nx)),h0
+     flush(1)
+     return
+   
+end subroutine poisson_solver
+
+
 end module basic_convergence_studies
