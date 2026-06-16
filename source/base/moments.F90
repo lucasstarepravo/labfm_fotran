@@ -155,11 +155,9 @@ end subroutine sph_weights
       do i = 1, npfb
          ii = i
          n = (i - 1) * num_neigh
-
          do j = 1, num_neigh   ! hardcoded number of neighbours
            k = ij_link(ii,j)
            raw_distances(:, j) = rp(ii,1:2) - rp(k,1:2)
-
          end do
 
          r_max = sqrt(raw_distances(1, num_neigh) ** 2 + raw_distances(2, num_neigh) ** 2) ! Assumes the neighbours are already sorted by distance
@@ -168,11 +166,11 @@ end subroutine sph_weights
 
 
          ! populate monomials test
-         monomials_test(1, :, i) = raw_distances(1, :)
-         monomials_test(2, :, i) = raw_distances(2, :)
-         monomials_test(3, :, i) = (raw_distances(1, :)) ** 2 / 2
-         monomials_test(4, :, i) = (raw_distances(1, :)) * (raw_distances(2, :))
-         monomials_test(5, :, i) = (raw_distances(2, :)) ** 2 / 2
+!         monomials_test(1, :, i) = raw_distances(1, :)
+!         monomials_test(2, :, i) = raw_distances(2, :)
+!         monomials_test(3, :, i) = (raw_distances(1, :)) ** 2 / 2
+!         monomials_test(4, :, i) = (raw_distances(1, :)) * (raw_distances(2, :))
+!         monomials_test(5, :, i) = (raw_distances(2, :)) ** 2 / 2
 
 
 
@@ -283,22 +281,18 @@ end subroutine sph_weights
            ! to test moments remove the rescaling
            ij_w_grad(i,j,1) = pred_w_x(k) / h(i)
            ij_w_grad(i,j,2) = pred_w_y(k) / h(i)
-           ij_w_lap(i,j)    = pred_w_lap(k) !/ h(i) / h(i)
+           ij_w_lap(i,j)    = pred_w_lap(k) / h(i) / h(i)
          end do
       end do
 
-      do i = 1, npfb
-         moments(1, i) = dot_product(monomials_test(1, :, i), ij_w_lap(i,:))
-         moments(2, i) = dot_product(monomials_test(2, :, i), ij_w_lap(i,:))
-         moments(3, i) = dot_product(monomials_test(3, :, i), ij_w_lap(i,:))
-         moments(4, i) = dot_product(monomials_test(4, :, i), ij_w_lap(i,:))
-         moments(5, i) = dot_product(monomials_test(5, :, i), ij_w_lap(i,:))
-      end do
+!      do i = 1, npfb
+!         moments(1, i) = dot_product(monomials_test(1, :, i), ij_w_lap(i,:))
+!         moments(2, i) = dot_product(monomials_test(2, :, i), ij_w_lap(i,:))
+!         moments(3, i) = dot_product(monomials_test(3, :, i), ij_w_lap(i,:))
+!         moments(4, i) = dot_product(monomials_test(4, :, i), ij_w_lap(i,:))
+!         moments(5, i) = dot_product(monomials_test(5, :, i), ij_w_lap(i,:))
+!      end do
 
-      print *, 'abg', sum(moments, dim=2) / npfb
-      j = maxloc(maxval(abs(moments), dim=1), dim=1)
-      print *, ',ax', moments(:, j)
-      stop
 
 
 

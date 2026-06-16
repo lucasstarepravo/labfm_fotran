@@ -139,7 +139,7 @@ subroutine initial_setup
   hovdx_min = hovdx!2.0d0
   ss = 2.0
   nplink = 4.0*ss*ss*hovdx*hovdx  !! nplink allows for square stencil with side length 2*ss
-  tmp_noise = 0.5 !! How noisy!!
+  tmp_noise = 1.0 !! How noisy!!
   
   !! A Reynolds number?? (also parameter for some Poisson stuff)
   Re=1.0d0
