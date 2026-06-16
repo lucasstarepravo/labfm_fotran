@@ -5,13 +5,312 @@ module moments
   use sphtools
   use omp_lib
   use svd_lib
+#ifdef gnn
+  use, intrinsic :: iso_fortran_env, only: real32, int32, int64
+  use torchfort
+#endif
   implicit none
+
 !! Choice of ABF type:: 1=original, 2=Hermite polynomials, 3=Legendre, 4=Laguerre, 5 = Taylor monomials
 !! ABFs 2, 3 and 4 are multiplied by an RBF (Wab(qq) set in sphtools).
 #define ABF 2
 
 contains
 !! ------------------------------------------------------------------------------------------------
+   subroutine sph_weights
+      integer(ikind) :: i, k, j
+      real(rkind) :: hh, vol_tmp, x, y, rad, qq
+      ! compute the density for all nodes in the domain
+      ! create new global variable for the sph density
+      ! compute the derivative kernel values
+
+      integer(ikind) :: i1,i2,nsize,nsizeG, ii
+      real(rkind), dimension(:), allocatable :: bvechyp, gvec, xvec
+      real(rkind), dimension(2) :: rij
+      real(rkind)  :: ff1, xx, yy
+      real(rkind),dimension(:,:),allocatable :: amaty
+      real(rkind),dimension(:,:),allocatable :: amathyp     
+
+ 
+
+
+      allocate(ij_w_grad(npfb, nplink, 2))
+      ij_w_grad = zero
+
+
+      allocate(ij_w_lap(npfb, nplink))
+      ij_w_lap = zero
+           !! Right hand sides, vectors of monomials and ABFs
+      k=4
+      nsizeG=(k*k+3*k)/2 
+      allocate(bvechyp(nsizeG))
+      allocate(amaty(nsizeG,nsizeG));amaty=zero
+      allocate(gvec(nsizeG),xvec(nsizeG));gvec=zero;xvec=zero
+      allocate(amathyp(nsizeG,nsizeG))
+      amathyp=zero
+
+      !allocate(vol(npfb));vol(:)=zero
+      !call calc_node_volumes
+
+      print *, 'Computing SPH weights'
+      do i = 1, npfb
+         do k = 2, ij_count(i)
+            j = ij_link(i, k)
+            hh = h(i)
+ 
+
+            x = rp(i, 1) - rp(j, 1)
+            y = rp(i, 2) - rp(j, 2)
+            rad = sqrt(x ** 2 + y ** 2)
+            qq = rad / hh
+
+#ifndef qs
+            if (qq.le.2.0d0.and.qq.gt.0.0d0) then
+         
+               ! Computing x-derivative weights
+               ij_w_grad(i, k, 1) = -7.0d0 * x * (1.0d0 - qq/2.0) ** 3 * (-5.0d0 * qq) / (4.0d0 * pi * hh ** 3 * rad) * dx * dx
+
+               ! Computing y-derivative weights
+               ij_w_grad(i, k, 2) = -7.0d0 * y * (1.0d0 - qq/2.0) ** 3 * (-5.0d0 * qq) / (4.0d0 * pi * hh ** 3 * rad) * dx * dx
+
+               ! Computing laplacian weights
+               ij_w_lap(i, k) = 2.0d0 * (x * ij_w_grad(i, k, 1) + y * ij_w_grad(i, k, 2)) / (rad ** 2 + 0.001d0*h(i) ** 2)
+            end if
+#endif
+         ! One can implement the quintic spline here
+
+         end do
+
+      end do
+end subroutine sph_weights
+!! ===============================================================================================
+#ifdef gnn
+   subroutine gnn_weights
+   ! recall that fortran and python read memory differently
+      real(real32), allocatable :: pred_w_x(:), pred_w_y(:), pred_w_lap(:), pred_w_hyp(:)
+   
+      integer :: istat
+      integer(ikind) :: ii , j
+      integer(int64) :: k, i, n
+      real(rkind),dimension(:,:,:),allocatable :: ij_w_grad_x
+      real(rkind), dimension(:,:,:), allocatable :: monomials_test, term_by_term ! test
+      real(rkind), dimension(:,:), allocatable :: moments
+      real(real32) :: r_max                                             ! max distance within stencil to normalise distances
+      real(real32), dimension(2, 35) :: raw_distances                   ! raw distance between neighbours and cetral node per stencil
+      real(real32), dimension(:,:), allocatable :: norm_distances_x     ! normalised distances between neighbour points and central
+      real(real32), dimension(:,:), allocatable :: norm_distances_y
+      integer(int64), dimension(68, 2) :: graph_edge                    ! graph edges per stencil
+      integer(int64), allocatable :: total_edges(:,:)                   ! graph edges for all stencils (must be adapted by global index of stencil)
+      integer(int64), allocatable :: total_batch(:, :)                     ! all batches indexes
+      type(torchfort_tensor_list) :: in_x_deriv_tensor, out_x_deriv_tensor
+      type(torchfort_tensor_list) :: in_y_deriv_tensor, out_y_deriv_tensor
+      type(torchfort_tensor_list) :: in_lap_tensor, out_lap_tensor
+
+
+      
+      ! allocate memory
+      ! distances
+      allocate(norm_distances_x(2, num_neigh * (npfb))) !npfb - nb
+      allocate(norm_distances_y(2, num_neigh * (npfb))) !npfb - nb
+
+
+      ! edges
+      allocate(total_edges(2 * (num_neigh - 1) * (npfb), 2))!npfb - nb
+
+      ! batch number
+      allocate(total_batch(num_neigh * (npfb), 1))!npfb - nb
+
+      norm_distances_x = 0; norm_distances_y = 0; total_edges = 0; total_batch = 0
+
+      ! weights straight out of gnn
+      allocate(pred_w_x(num_neigh * (npfb))) !npfb - nb
+      allocate(pred_w_y(num_neigh * (npfb))) !npfb - nb
+      allocate(pred_w_lap(num_neigh * (npfb))) !npfb - nb
+
+
+      ! reshaped grads
+      allocate(ij_w_grad(npfb,num_neigh,2))
+      allocate(ij_w_lap(npfb,num_neigh))
+
+
+      ! values allocated below are only used for testing
+      allocate(monomials_test(5, num_neigh, npfb), term_by_term(5, num_neigh, npfb)) ! test!npfb - nb
+      allocate(moments(5, npfb)) ! test!npfb - nb
+
+      
+      moments = 0; monomials_test = 0
+
+      ! pre compute graph edges once
+      graph_edge(num_neigh:, 1) = 0_int64
+      graph_edge(1:num_neigh - 1, 2) = 0_int64
+      
+      do k = 1, num_neigh - 1
+         graph_edge(k, 1) = k
+         graph_edge(k + num_neigh - 1, 2) = k
+      end do
+
+
+      !!!!!!! Gradient and Laplacian graph
+      !$omp do private(ii, j, k, raw_distances, r_max)
+      do i = 1, npfb
+         ii = i
+         n = (i - 1) * num_neigh
+
+         do j = 1, num_neigh   ! hardcoded number of neighbours
+           k = ij_link(ii,j)
+           raw_distances(:, j) = rp(ii,1:2) - rp(k,1:2)
+
+         end do
+
+         r_max = sqrt(raw_distances(1, num_neigh) ** 2 + raw_distances(2, num_neigh) ** 2) ! Assumes the neighbours are already sorted by distance
+
+         raw_distances = raw_distances / (r_max)   ! chose the ratio to which normalise the distances
+
+
+         ! populate monomials test
+         monomials_test(1, :, i) = raw_distances(1, :)
+         monomials_test(2, :, i) = raw_distances(2, :)
+         monomials_test(3, :, i) = (raw_distances(1, :)) ** 2 / 2
+         monomials_test(4, :, i) = (raw_distances(1, :)) * (raw_distances(2, :))
+         monomials_test(5, :, i) = (raw_distances(2, :)) ** 2 / 2
+
+
+
+         ! create global arrays
+         h(i) = r_max
+         norm_distances_x(:, 1 + (i - 1) * num_neigh : i * num_neigh)  = raw_distances
+         total_batch(1 + (i - 1) * num_neigh:i * num_neigh, :) = i - 1_int64
+
+         total_edges(1 + (i - 1) * 2 * (num_neigh - 1) : i * 2 * (num_neigh - 1), :) = graph_edge + n 
+         
+         !norm_distances_y(:, 1 + (i - 1) * num_neigh : i * num_neigh)  = raw_distances_test ! test
+      end do
+      !$omp end do
+      norm_distances_y(1, :) = norm_distances_x(2, :)
+      norm_distances_y(2, :) = norm_distances_x(1, :)
+
+
+
+      !if (iproc.eq.0) then
+      !   print *, shape()
+
+      print *, 'Computing gnn weights'
+
+      !!!!!!!! x-derivative weights
+      istat = torchfort_tensor_list_create(in_x_deriv_tensor)
+      if (istat /= TORCHFORT_RESULT_SUCCESS) stop 1
+      istat = torchfort_tensor_list_create(out_x_deriv_tensor)
+      if (istat /= TORCHFORT_RESULT_SUCCESS) stop 1
+
+      istat = torchfort_tensor_list_add_tensor(in_x_deriv_tensor, norm_distances_x)
+      if (istat /= TORCHFORT_RESULT_SUCCESS) stop 1
+      istat = torchfort_tensor_list_add_tensor(in_x_deriv_tensor, total_edges)
+      if (istat /= TORCHFORT_RESULT_SUCCESS) stop 1
+      istat = torchfort_tensor_list_add_tensor(in_x_deriv_tensor, total_batch)
+      if (istat /= TORCHFORT_RESULT_SUCCESS) stop 1
+
+      istat = torchfort_tensor_list_add_tensor(out_x_deriv_tensor, pred_w_x)
+      if (istat /= TORCHFORT_RESULT_SUCCESS) stop 1
+
+      ! do forward pass
+      istat = torchfort_inference_multiarg('gnn_deriv', in_x_deriv_tensor, out_x_deriv_tensor)
+      if (istat /= TORCHFORT_RESULT_SUCCESS) stop 1
+
+      ! destroy x tensors
+      istat = torchfort_tensor_list_destroy(in_x_deriv_tensor)
+      if (istat /= TORCHFORT_RESULT_SUCCESS) stop 1
+      istat = torchfort_tensor_list_destroy(out_x_deriv_tensor)
+      if (istat /= TORCHFORT_RESULT_SUCCESS) stop 1
+
+      !!!!!!!! y-derivative weights
+      istat = torchfort_tensor_list_create(in_y_deriv_tensor)
+      if (istat /= TORCHFORT_RESULT_SUCCESS) stop 1
+      istat = torchfort_tensor_list_create(out_y_deriv_tensor)
+      if (istat /= TORCHFORT_RESULT_SUCCESS) stop 1
+
+      istat = torchfort_tensor_list_add_tensor(in_y_deriv_tensor, norm_distances_y)
+      if (istat /= TORCHFORT_RESULT_SUCCESS) stop 1
+      istat = torchfort_tensor_list_add_tensor(in_y_deriv_tensor, total_edges)
+      if (istat /= TORCHFORT_RESULT_SUCCESS) stop 1
+      istat = torchfort_tensor_list_add_tensor(in_y_deriv_tensor, total_batch)
+      if (istat /= TORCHFORT_RESULT_SUCCESS) stop 1
+
+      istat = torchfort_tensor_list_add_tensor(out_y_deriv_tensor, pred_w_y)
+      if (istat /= TORCHFORT_RESULT_SUCCESS) stop 1
+
+      istat = torchfort_inference_multiarg('gnn_deriv', in_y_deriv_tensor, out_y_deriv_tensor)
+      if (istat /= TORCHFORT_RESULT_SUCCESS) stop 1
+
+      ! destroy y tensors
+      istat = torchfort_tensor_list_destroy(in_y_deriv_tensor)
+      if (istat /= TORCHFORT_RESULT_SUCCESS) stop 1
+      istat = torchfort_tensor_list_destroy(out_y_deriv_tensor)
+      if (istat /= TORCHFORT_RESULT_SUCCESS) stop 1
+
+
+      !!!!!!!! Laplacian weights
+      istat = torchfort_tensor_list_create(in_lap_tensor)
+      if (istat /= TORCHFORT_RESULT_SUCCESS) stop 1
+      istat = torchfort_tensor_list_create(out_lap_tensor)
+      if (istat /= TORCHFORT_RESULT_SUCCESS) stop 1
+
+      istat = torchfort_tensor_list_add_tensor(in_lap_tensor, norm_distances_x)
+      if (istat /= TORCHFORT_RESULT_SUCCESS) stop 1
+      istat = torchfort_tensor_list_add_tensor(in_lap_tensor, total_edges)
+      if (istat /= TORCHFORT_RESULT_SUCCESS) stop 1
+      istat = torchfort_tensor_list_add_tensor(in_lap_tensor, total_batch)
+      if (istat /= TORCHFORT_RESULT_SUCCESS) stop 1
+
+      istat = torchfort_tensor_list_add_tensor(out_lap_tensor, pred_w_lap)
+      if (istat /= TORCHFORT_RESULT_SUCCESS) stop 1
+
+      istat = torchfort_inference_multiarg('gnn_lap', in_lap_tensor, out_lap_tensor)
+      if (istat /= TORCHFORT_RESULT_SUCCESS) stop 1
+
+      ! destroy laplacian tensors
+      istat = torchfort_tensor_list_destroy(in_lap_tensor)
+      if (istat /= TORCHFORT_RESULT_SUCCESS) stop 1
+      istat = torchfort_tensor_list_destroy(out_lap_tensor)
+      if (istat /= TORCHFORT_RESULT_SUCCESS) stop 1
+
+
+
+
+      ! reshape outputs
+      do i = 1, npfb
+         do j = 1, num_neigh
+           k = (i - 1)*num_neigh + j
+           ! to test moments remove the rescaling
+           ij_w_grad(i,j,1) = pred_w_x(k) / h(i)
+           ij_w_grad(i,j,2) = pred_w_y(k) / h(i)
+           ij_w_lap(i,j)    = pred_w_lap(k) !/ h(i) / h(i)
+         end do
+      end do
+
+      do i = 1, npfb
+         moments(1, i) = dot_product(monomials_test(1, :, i), ij_w_lap(i,:))
+         moments(2, i) = dot_product(monomials_test(2, :, i), ij_w_lap(i,:))
+         moments(3, i) = dot_product(monomials_test(3, :, i), ij_w_lap(i,:))
+         moments(4, i) = dot_product(monomials_test(4, :, i), ij_w_lap(i,:))
+         moments(5, i) = dot_product(monomials_test(5, :, i), ij_w_lap(i,:))
+      end do
+
+      print *, 'abg', sum(moments, dim=2) / npfb
+      j = maxloc(maxval(abs(moments), dim=1), dim=1)
+      print *, ',ax', moments(:, j)
+      stop
+
+
+
+     deallocate(norm_distances_x, norm_distances_y)
+     deallocate(total_edges, total_batch)
+     deallocate(pred_w_x, pred_w_y, pred_w_lap)
+     deallocate(monomials_test, moments)
+
+
+
+  end subroutine gnn_weights
+#endif
 !! ================================================================================================
   subroutine calc_interparticle_weights
      integer(ikind) :: i,j,k
@@ -62,7 +361,9 @@ contains
      nsizeG=(k*k+3*k)/2   !!  5,9,14,20,27,35,44... for k=2,3,4,5,6,7,8...
 
      !! Left hand sides and arrays for interparticle weights
-     allocate(ij_w_grad(npfb,nplink,2),ij_w_lap(npfb,nplink),ij_w_hyp(npfb,nplink))
+     allocate(ij_w_grad(npfb,nplink,2),ij_w_lap(npfb,nplink))
+     if (.not.allocated(ij_w_hyp)) allocate(ij_w_hyp(npfb,nplink))
+
      ij_w_grad=0.0d0;ij_w_lap=0.0d0;ij_w_hyp=0.0d0
      allocate(amatGx(nsizeG,nsizeG),amatGy(nsizeG,nsizeG),amatL(nsizeG,nsizeG),amathyp(nsizeG,nsizeG))
      amatGx=0.0d0;amatGy=0.0d0;amatL=0.0d0;amathyp=0.0d0

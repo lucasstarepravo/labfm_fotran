@@ -44,11 +44,32 @@ ifeq ($(cyl),1)
 FFLAGS += -Dcyl=1
 endif
 
+ifeq ($(gnn), 1)
+FFLAGS += -Dgnn
+endif
+
+ifeq ($(sph), 1)
+FFLAGS += -Dsph
+endif
+
+# To initiate container
+# docker run -it  -v $(pwd):/app -w /app torchfort:labfm bash
+
+######### Torchfort ########
+TF := /opt/torchfort
+FFLAGS  += -I$(TF)/include
+LDFLAGS += -L$(TF)/lib
+LDFLAGS += -Wl,-rpath,$(TF)/lib
+LDFLAGS += -Wl,-rpath,/usr/local/lib/python3.10/dist-packages/torch/lib
+LDLIBS := -ltorchfort_fort -ltorchfort
+
+LDLIBS += -L$(YAMLCPP_ABI0_LIB) -lyaml-cpp -lstdc++
+
 SUB_DIRS := para base
 SRC_DIR  := $(addprefix source/,$(SUB_DIRS))
 
 #common_parameter needs to be first as mod file is depended upon by nearly everything.
-OBJ_FILES := obj/kind_parameters.o obj/common_parameter.o obj/common_2d.o
+OBJ_FILES := obj/kind_parameters.o obj/common_parameter.o obj/common_2d.o obj/gnn_mod.o
 OBJ_FILES += obj/sphtools.o obj/analytic_functions.o obj/neighbours.o
 OBJ_FILES += obj/svd_lib.o
 OBJ_FILES += obj/nodes.o obj/moments.o
@@ -63,8 +84,12 @@ vpath %.F90 $(SRC_DIR)
 
 #-------
 default: labfm
+
+run: labfm
+	./labfm
+
 labfm: $(OBJ_FILES)
-	$(LD) -o $@ $^ $(LDFLAGS)
+	$(LD) -o $@ $^ $(LDFLAGS) $(LDLIBS)
 
 obj/%.o: %.F90
 	$(FC) $(FFLAGS) -c -o $@ $<

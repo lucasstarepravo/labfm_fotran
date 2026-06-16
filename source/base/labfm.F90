@@ -8,11 +8,18 @@ program labfm
   use moments
   use basic_convergence_studies
   use burgers_equation
+#ifdef gnn
+  use gnn_mod
+#endif
   implicit none
 
   integer(ikind) :: k,kk
 
   call initial_setup
+
+#ifdef gnn
+  call import_gnn
+#endif
 
   !! Loop over a range of resolutions
   nx = 10!! 1/2 the initial resolution
@@ -39,22 +46,39 @@ program labfm
      !ij_count(:)=mincount
 
      ! or do the following
-     mincount = minval(ij_count(:))
-     !ij_count(:) = min(mincount,30)
+!     mincount = minval(ij_count(:))
+     ij_count(:) = min(mincount,num_neigh)
+     ij_count(:) = num_neigh
+     !print *, 'min_count', mincount
 
      call save_ij_link(ij_link, k, ij_count) ! In find_neighbours.F90 file
 
      !! Calculate all the interparticle weights and any moments we might need
      !! This is the key part of LABFM
+#ifdef gnn
+     call gnn_weights
+#else
+#ifdef sph
+     call sph_weights
+#else
      call calc_interparticle_weights
+#endif
+#endif
+     
 !     call filter_coefficients
      !print *, "Dimensions of psiL: ", size(bvecL_mat, 1), size(bvecL_mat, 2)
 
      call save_psi(bvecl_mat, bvecgx_mat, bvecgy_mat, k)
-     deallocate(bvecl_mat, bvecgx_mat, bvecgy_mat)
+     if (allocated(bvecl_mat)) deallocate (bvecl_mat)
+     if (allocated(bvecgx_mat)) deallocate (bvecgx_mat)
+     if (allocated(bvecgy_mat)) deallocate (bvecgy_mat)
 
+#ifndef gnn
+#ifndef sph
      call save_amat(k)
      deallocate(amat_save)
+#endif
+#endif
 
      call save_wxy(ij_w_grad,k)       ! In moments.F90 file
      call save_wlaplace(ij_w_lap,k)   ! In moments.F90 file
@@ -82,7 +106,8 @@ program labfm
      deallocate(ij_count,ij_link);if(allocated(irelation)) deallocate(irelation)
      if(allocated(vrelation)) deallocate(vrelation)
      if(allocated(ibtype)) deallocate(ibtype)
-     if(allocated(ij_w_grad)) deallocate(ij_w_grad,ij_w_lap,ij_w_hyp)
+     if(allocated(ij_w_grad)) deallocate(ij_w_grad,ij_w_lap)
+     if (allocated(ij_w_hyp)) deallocate(ij_w_hyp)
      if(allocated(filter_coeff)) deallocate(filter_coeff)
      if(allocated(hqw)) deallocate(hqw)
   end do
@@ -107,7 +132,7 @@ subroutine initial_setup
   lambda = (xmax - xmin)!/8.0d0
 
   !! Particles per smoothing length and supportsize/h
-  hovdx = 1.5;hovdx_av=hovdx
+  hovdx = 3.0;hovdx_av=hovdx
   
   !! For asymmetric stencils
   hovdx_max = hovdx

@@ -1,0 +1,9 @@
+general:
+  report_frequency: 0
+  enable_wandb_hook: false
+  verbose: true
+
+model:
+  type: torchscript
+  parameters:
+    filename: "gnn/lap_script_cpu.ts"

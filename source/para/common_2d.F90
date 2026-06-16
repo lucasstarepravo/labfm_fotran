@@ -62,6 +62,7 @@ module common_2d
   !! Lucas Variables
   integer(ikind) :: mincount
   real(rkind), dimension(:), allocatable :: phi_vec
+
   
         
 end module common_2d
