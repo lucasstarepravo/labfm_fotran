@@ -421,7 +421,7 @@ flush(30);close(30)
         call find_neighbours
 
         !! Find shifting vector...
-        !$OMP PARALLEL DO PRIVATE(k,j,rij,rad,qq,gradw,dr_tmp)
+        !$OMP PARALLEL DO PRIVATE(k,j,rij,rad,qq,gradw,dr_tmp,drmag)
         do i=nb+1,npfb
            qkd_mag = 1.0d-1/h0!(i)
            dr_tmp = 0.0d0
@@ -434,6 +434,10 @@ flush(30);close(30)
               dr_tmp = dr_tmp + gradw(:)
            end do
            dr(i,:) = dr_tmp*dx*dx
+           drmag = sqrt(dot_product(dr(i,:),dr(i,:)))
+           if(drmag.gt.0.1d0*h(i)) then
+              dr(i,:) = dr(i,:)*0.1d0*h(i)/drmag
+           end if
         end do
         !$OMP END PARALLEL DO
         
@@ -867,14 +871,21 @@ flush(31);close(31)
 
 subroutine create_particles_bperiodic_cyl
      !! Periodic outer boundaries + Dirichlet cylinder obstacle.
-     !! Fluid particles at half-grid offsets (as in bperiodic).
-     !! Ordering: 1..nb = cylinder Dirichlet, nb+1..npfb = internal,
-     !!           npfb+1..np_mirror = periodic ghosts (irelation),
-     !!           np_mirror+1..np = cylinder ghost layers (analytic).
+     !! Fluid particles at half-grid offsets (as in bperiodic), then blue-noise shifted.
+     !! Ordering: 1..nb = cylinder Dirichlet,
+     !!           nb+1..npfb = internal fluid (shifted; briefly also hosts temporary
+     !!                        inward ghost-wall rings during shifting, stripped before
+     !!                        npfb is finalised below),
+     !!           npfb+1..np = periodic ghosts (irelation).
      integer(ikind) :: i, tmp_i, tmp_j, j, imp, nss, np_mirror
-     integer(ikind) :: n_ring
+     integer(ikind) :: n_ring, n_ring_i, ilayer, n_ghost_total, irep, k_idx
      real(rkind) :: ns, rp_x, rp_y
-     real(rkind) :: cyl_rad, cyl_x, cyl_y, ring_rad, theta, twopi, dist2
+     real(rkind) :: cyl_rad, cyl_x, cyl_y, ring_rad, theta, twopi, dist2, excl_rad2
+     real(rkind), parameter :: seed_noise = 25.0d-2  !! tiny symmetry-breaking jitter (fraction of dx);
+                                                     !! shifting does the real disordering, this just
+                                                     !! stops a perfectly uniform lattice locking the
+                                                     !! shift force to exactly zero away from the cylinder
+     logical :: use_structured_layer = .false.!.true.   !! set .false. for disordered-only fill
 
      time = 0.0d0
      kappa = 0.0d0
@@ -889,8 +900,10 @@ subroutine create_particles_bperiodic_cyl
      cyl_y = 0.5d0*(ymin + ymax)
      cyl_rad = 0.2d0
 
-     ! Over-allocate: fluid + mirrors + cylinder surface + cylinder ghosts
-     tmp_i = 2*(nx + 2*nss + 1)**2 + nss*nint(twopi*cyl_rad/dx + 1)
+     n_ring = max(nint(twopi*cyl_rad/dx), 1)
+
+     ! Over-allocate: fluid + mirrors + cylinder surface + structured layers + cylinder ghosts
+     tmp_i = 2*(nx + 2*nss + 1)**2 + (2*nss + 1)*n_ring
      allocate(rp(tmp_i, dims))
      allocate(h(tmp_i)); h = h0
 
@@ -898,7 +911,6 @@ subroutine create_particles_bperiodic_cyl
 
      !! ---- 1. Cylinder surface: Dirichlet (1..nb) ----
      nb_n = 0
-     n_ring = max(nint(twopi*cyl_rad/dx), 1)
      do j = 1, n_ring
         theta = twopi*dble(j-1)/dble(n_ring)
         imp = imp + 1
@@ -907,25 +919,86 @@ subroutine create_particles_bperiodic_cyl
      end do
      nb = imp
 
-     !! ---- 2. Internal fluid at half-grid, cylinder carved out (nb+1..npfb) ----
+     !! ---- 1a. Temporary inward ghost-wall rings, strictly inside the cylinder.
+     !! These act as a static repulsive wall during iterative shifting, so fluid
+     !! particles never drift across the cylinder surface. They are flagged via
+     !! dontshift (so iteratively_shift never moves them) and live within nb+1..npfb
+     !! (not appended beyond npfb) so they survive create_mirror_particles' reset of
+     !! np during each shifting iteration. They are stripped out (rp/h compacted)
+     !! once shifting is complete, before the final npfb is fixed and periodic
+     !! mirrors are built - the solver only ever sees the single nb boundary ring.
+     allocate(dontshift(tmp_i)); dontshift = 0
+     n_ghost_total = 0
+     do ilayer = 1, nss
+        ring_rad = cyl_rad - dble(ilayer)*dx
+        if (ring_rad <= 0.0d0) exit
+        n_ring_i = max(nint(twopi*ring_rad/dx), 1)
+        do j = 1, n_ring_i
+           theta = twopi*dble(j-1)/dble(n_ring_i)
+           imp = imp + 1
+           rp(imp, 1) = cyl_x + ring_rad*cos(theta)
+           rp(imp, 2) = cyl_y + ring_rad*sin(theta)
+           h(imp) = h0
+           dontshift(imp) = 1
+           n_ghost_total = n_ghost_total + 1
+        end do
+     end do
+
+     !! ---- 1b. Structured fluid layers around cylinder (nb+1..nb+nss*n_ring) ----
+     if (use_structured_layer) then
+        do i = 1, nss - 1
+           ring_rad = cyl_rad + dble(i)*dx
+           do j = 1, n_ring
+              theta = twopi*dble(j-1)/dble(n_ring)
+              imp = imp + 1
+              rp(imp, 1) = cyl_x + ring_rad*cos(theta)
+              rp(imp, 2) = cyl_y + ring_rad*sin(theta)
+           end do
+        end do
+     end if
+
+     !! ---- 2. Internal fluid at half-grid, cylinder + layers carved out (..npfb) ----
+     if (use_structured_layer) then
+        excl_rad2 = (cyl_rad + dble(nss - 1)*dx)**2
+     else
+        excl_rad2 = cyl_rad**2
+     end if
      call random_seed()
      do i = 1, (nx+1)**2
         tmp_i = (i-1)/(nx+1) + 1
         tmp_j = i - (tmp_i-1)*(nx+1)
-        call random_number(ns); ns = (ns - 0.5d0)*dx*tmp_noise
+        call random_number(ns); ns = (ns - 0.5d0)*dx*seed_noise
         rp_x = xmin + 0.5d0*dx + dble(tmp_i-1)*dx + ns
-        call random_number(ns); ns = (ns - 0.5d0)*dx*tmp_noise
+        call random_number(ns); ns = (ns - 0.5d0)*dx*seed_noise
         rp_y = ymin + 0.5d0*dx + dble(tmp_j-1)*dx + ns
         dist2 = (rp_x - cyl_x)**2 + (rp_y - cyl_y)**2
-        if (dist2 <= cyl_rad*cyl_rad) cycle
+        if (dist2 <= excl_rad2) cycle
         imp = imp + 1
         rp(imp, 1) = rp_x
         rp(imp, 2) = rp_y
      end do
      npfb = imp
 
-     !! ---- 3. Periodic outer ghosts via create_mirror_particles ----
+     !! ---- 3. Iteratively shift to a blue-noise fluid distribution. The inward
+     !! ghost-wall rings (dontshift-flagged, indices nb+1..nb+n_ghost_total) act as
+     !! a static repeller, keeping fluid particles out of the cylinder throughout.
+     do irep = 1, 5
+        call iteratively_shift(10)
+     end do
+
+     !! ---- 3a. Strip the temporary ghost-wall rings: compact rp/h, removing
+     !! nb+1..nb+n_ghost_total and shifting the real interior fluid block down.
+     do k_idx = nb + n_ghost_total + 1, npfb
+        rp(k_idx - n_ghost_total, :) = rp(k_idx, :)
+        h(k_idx - n_ghost_total) = h(k_idx)
+     end do
+     npfb = npfb - n_ghost_total
+     deallocate(dontshift)
+
+     !! ---- 3b. Periodic outer ghosts via create_mirror_particles, built fresh
+     !! against the corrected npfb.
      !! NB: requires xbcond=1, ybcond=1 in create_mirror_particles
+     if (allocated(irelation)) deallocate(irelation, vrelation)
      call create_mirror_particles
      np_mirror = np   ! save count after mirrors
 

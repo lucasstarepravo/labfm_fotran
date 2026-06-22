@@ -361,8 +361,8 @@ subroutine poisson_solver
 
 
      !! Output to file and flush
-     write(1,*) dx/lambda,hovdx_av,l2 !h0/lambda,hovdx_av !kl/(nx*pi)
-     write(6,*) npfb,hovdx_av,l2, 24.0*pi/(25.0*dble(nx)),h0
+     write(1,*) dx/lambda,hovdx_av,l2, dx !h0/lambda,hovdx_av !kl/(nx*pi)
+     write(6,*) npfb,hovdx_av,l2, 24.0*pi/(25.0*dble(nx)),h0, dx
      flush(1)
      return
    

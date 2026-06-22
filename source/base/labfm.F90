@@ -47,11 +47,14 @@ program labfm
 
      ! or do the following
 !     mincount = minval(ij_count(:))
+#ifdef gnn
      ij_count(:) = min(mincount,num_neigh)
      ij_count(:) = num_neigh
+#endif
      !print *, 'min_count', mincount
 
-     call save_ij_link(ij_link, k, ij_count) ! In find_neighbours.F90 file
+!     call save_ij_link(ij_link, k, ij_count) ! In find_neighbours.F90 file
+!     call save_ij_rp(ij_link, k)
 
      !! Calculate all the interparticle weights and any moments we might need
      !! This is the key part of LABFM
@@ -68,20 +71,20 @@ program labfm
 !     call filter_coefficients
      !print *, "Dimensions of psiL: ", size(bvecL_mat, 1), size(bvecL_mat, 2)
 
-     call save_psi(bvecl_mat, bvecgx_mat, bvecgy_mat, k)
+!     call save_psi(bvecl_mat, bvecgx_mat, bvecgy_mat, k)
      if (allocated(bvecl_mat)) deallocate (bvecl_mat)
      if (allocated(bvecgx_mat)) deallocate (bvecgx_mat)
      if (allocated(bvecgy_mat)) deallocate (bvecgy_mat)
 
 #ifndef gnn
 #ifndef sph
-     call save_amat(k)
-     deallocate(amat_save)
+!     call save_amat(k)
+     if (allocated(amat_save)) deallocate(amat_save)
 #endif
 #endif
 
-     call save_wxy(ij_w_grad,k)       ! In moments.F90 file
-     call save_wlaplace(ij_w_lap,k)   ! In moments.F90 file
+!     call save_wxy(ij_w_grad,k)       ! In moments.F90 file
+!     call save_wlaplace(ij_w_lap,k)   ! In moments.F90 file
 
      !! Call subroutine to do whatever test we choose...
 !     call gradient_convergence_test
@@ -95,7 +98,8 @@ program labfm
 
      call save_positions(k)
 
-     call output_uv(k)
+!     call output_uv(k)
+!     print *, 'npfb', npfb
 
 !     print *, 'hovdx', hovdx
 !     print *, 'ss', ss
@@ -132,8 +136,11 @@ subroutine initial_setup
   lambda = (xmax - xmin)!/8.0d0
 
   !! Particles per smoothing length and supportsize/h
+#ifdef gnn
   hovdx = 3.0;hovdx_av=hovdx
-  
+#else
+     hovdx = 1.5;hovdx_av=hovdx
+#endif
   !! For asymmetric stencils
   hovdx_max = hovdx
   hovdx_min = hovdx!2.0d0

@@ -4,10 +4,11 @@ module neighbours
   use common_2d
   use sphtools
   use omp_lib
+  use analytic_functions
   implicit none
 
   private
-  public :: find_neighbours, save_ij_link, save_positions
+  public :: find_neighbours, save_ij_link, save_positions, save_ij_rp
 
   integer(ikind), dimension(:), allocatable ::ist, ip, nc
   integer(ikind), dimension(:), allocatable :: cellpart,ic_count
@@ -326,10 +327,11 @@ contains
 
    close(unit=unit_number)
 end subroutine save_ij_link
-
+!! ----------------------------------------------------------------------------------------------
 
 subroutine save_positions(k)
    integer :: i, k
+   real(rkind) :: x, y
    integer, parameter :: unit_number = 37
    character(len=60) :: filename
 
@@ -337,8 +339,11 @@ subroutine save_positions(k)
    open(unit=unit_number, file=filename, status='replace', action='write')
 
    do i=1,npfb
-      write(unit_number, '(ES15.8,A1,ES15.8,A1)', advance='no') rp(i,1), ',', rp(i,2), ','
-      write(unit_number, '(ES15.8)') phi_vec(i)
+      x = rp(i,1);y=rp(i,2)
+      write(unit_number, '(ES15.8,A1,ES15.8,A1)', advance='no') x, ',', y, ','
+      write(unit_number, '(ES15.8, A1)', advance='no') phi_vec(i), ','
+      write(unit_number, '(ES15.8, A1)', advance='no') ftn(x,y)
+      write(unit_number, '(ES15.8)') ((phi_vec(i) - ftn(x,y)) ** 2) ** .5
    end do
 
 
@@ -346,5 +351,81 @@ subroutine save_positions(k)
 
    close(unit=unit_number)
 end subroutine save_positions
+!! ---------------------------------------------------------------------------------------
+  subroutine save_ij_rp(var, k_value)
+   integer(ikind),dimension(:,:), intent(in) :: var
+   integer, intent(in) :: k_value
+   integer :: i, j, numRows, numCols, ii, total_p, local_min
+   integer, parameter :: unit_number = 343
+   character(len=60) :: filename
+   real(rkind), dimension(:,:,:), allocatable :: norm_distances
+   real(rkind), dimension(:), allocatable :: r_distances
+   real(rkind) :: max_r
+  
+  allocate(r_distances(num_neigh)); r_distances = zero
+  allocate(norm_distances(np,num_neigh, 2)); norm_distances = zero
+
+   numRows = size(var, 1)
+   numCols = size(var, 2)
+   local_min = num_neigh
+
+   do i = 1,numRows
+      do ii = 1, local_min
+         r_distances(ii) = ((rp(ij_link(i,ii), 1) - rp(ij_link(i,1), 1))**2 + (rp(ij_link(i,ii), 2) - rp(ij_link(i,1), 2))**2)**0.5
+      end do
+      max_r = maxval(r_distances)
+
+      do ii = 1, local_min
+         norm_distances(i, ii, 1) = (rp(ij_link(i,ii), 1) - rp(ij_link(i,1), 1))/max_r
+         norm_distances(i, ii, 2) = (rp(ij_link(i,ii), 2) - rp(ij_link(i,1), 2))/max_r
+      end do
+   end do
+
+
+   j = 0
+   total_p = 0
+
+   do while (total_p < numRows)
+      write(filename, '(A22,I0,A1,I0,A4)') 'lucas/neigh_rp/ij_link', k_value, '_', j, '.csv'
+
+      open(unit=(unit_number+j), file=filename, status='replace', action='write')
+
+      do i = 1, 500000
+         total_p = total_p + 1
+         if (total_p <= numRows) then 
+            do ii=1, local_min
+               write((unit_number+j), '(*(ES20.12,","),ES20.12)', advance='no') &
+                  norm_distances(total_p, ii, 1), &
+                  norm_distances(total_p, ii, 2)
+            end do
+            write((unit_number+j), *)
+         else 
+            exit
+         end if
+      end do
+      close(unit=(unit_number+j))
+      j = j + 1
+   end do
+
+
+
+   !write(filename, '(A19,I0,A1,I0,A4)') 'lucas/neigh/ij_link', k_value, '_',j, '.csv'
+   
+   !open(unit=unit_number, file=filename, status='replace', action='write')
+
+   
+   
+   !do i=1,numRows
+   !   write(unit_number, '(I10)', advance='no') var(i,1)
+   !   do j=2,num_neigh(i)
+         !print *, "count(i): ", count(i)
+         !print *, "var(i,:): ", var(i,:)
+   !      write(unit_number, '(A,I10)', advance='no') ",", var(i,j)
+   !   end do
+   !   write(unit_number, *)
+   !end do
+
+   close(unit=unit_number)
+end subroutine save_ij_rp
 
 end module neighbours

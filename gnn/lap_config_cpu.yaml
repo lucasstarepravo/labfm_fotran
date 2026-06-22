@@ -6,4 +6,4 @@ general:
 model:
   type: torchscript
   parameters:
-    filename: "gnn/lap_script_cpu.ts"
+    filename: "gnn/aug_lap_cpu.ts"
