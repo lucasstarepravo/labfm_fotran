@@ -137,7 +137,7 @@ subroutine initial_setup
 
   !! Particles per smoothing length and supportsize/h
 #ifdef gnn
-  hovdx = 3.0;hovdx_av=hovdx
+  hovdx = 2.5;hovdx_av=hovdx
 #else
      hovdx = 1.5;hovdx_av=hovdx
 #endif

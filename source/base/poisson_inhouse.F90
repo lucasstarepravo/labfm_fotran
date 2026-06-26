@@ -194,7 +194,6 @@ contains
     real(rkind),dimension(dims) :: riii
     integer(ikind) :: iters,itermax
     real(rkind) :: residual,tol
-    real(rkind), dimension(:,:), allocatable :: l_mat
     real(rkind), dimension(:), allocatable :: rhs_vec,sol_vec
     integer(ikind), dimension(:),allocatable :: ij_num,ia
     real(rkind),dimension(:),allocatable :: p_fs 
@@ -214,7 +213,6 @@ contains
     allocate(lhs_mat(nnz),ija(nnz));ija=0;lhs_mat=0.0d0
     allocate(ij_num(npfb));ij_num=0
     allocate(rhs_vec(npfb+nb_n),sol_vec(npfb+nb_n));rhs_vec = 0.0d0;sol_vec=0.0d0
-    allocate(l_mat(np,np));l_mat=0.0d0
 
     !! Build the RHS
     !$OMP PARALLEL DO
@@ -251,7 +249,6 @@ contains
              temp = -ij_w_lap(i,k)
              if(i.ne.j)then
                 lhs_mat(i)=lhs_mat(i) + temp   ! Contribution to diagonal of A
-             !   l_mat(i,i)=lmat(i,i)+temp
                 if(j.gt.npfb)then    ! If j is mirror, then
                    ij=irelation(j)    ! look for parent of j, ij
                    if(i.ne.ij)then
@@ -263,7 +260,6 @@ contains
                 elseif(j.le.npfb)then   ! if j is not a mirror
                    n_t = ij_num(j)   
                    lhs_mat(n_t)=lhs_mat(n_t)-temp    ! Contribution to A(i,j)
-                   l_mat(i,j)=lhs_mat(ij_num(j))
                 end if
              end if
           end do
@@ -296,29 +292,20 @@ contains
              j=ija(k)
              if(j.le.nb)then
                 lhs_mat(k)=0.0d0
-                l_mat(i,j)=0.0d0
              end if
           end do
           if(i.le.nb) then
              lhs_mat(i) = 1.0_rkind   ! set A_[i,i] = 1
-           !  l_mat(i,i)=1.0d0
              rhs_vec(i) = tmp_vec(i)  ! set ith entry of RHS to p_fs(i)
              do k=ia(i),ia(i+1)-1   !! Loop over row
                 j=ija(k)   !! We are considering element A_[i,j]
                 lhs_mat(k)=0.0d0     !! and setting A_[i,:]=0,A_[i,i]=1
-                l_mat(i,j)=0.0d0
-             end do             
+             end do
           end if     
        end do
        !$omp end parallel do
-       
-       do i=1, npfb
-          l_mat(i,i)=lhs_mat(i)
-!          print *, l_mat(i,1:npfb), rhs_vec(i),rp(i,1), rp(i,2)
-!          stop
-       end do
-       
-       end if                              
+
+       end if
     end if
 !stop
     !! Set tolerance and max iterations allowed

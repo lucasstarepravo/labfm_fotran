@@ -881,10 +881,15 @@ subroutine create_particles_bperiodic_cyl
      integer(ikind) :: n_ring, n_ring_i, ilayer, n_ghost_total, irep, k_idx
      real(rkind) :: ns, rp_x, rp_y
      real(rkind) :: cyl_rad, cyl_x, cyl_y, ring_rad, theta, twopi, dist2, excl_rad2
-     real(rkind), parameter :: seed_noise = 25.0d-2  !! tiny symmetry-breaking jitter (fraction of dx);
+     real(rkind) :: min_gap_cyl, depth_r, theta_i
+     real(rkind), parameter :: seed_noise = 1.0d-2  !! tiny symmetry-breaking jitter (fraction of dx);
                                                      !! shifting does the real disordering, this just
                                                      !! stops a perfectly uniform lattice locking the
                                                      !! shift force to exactly zero away from the cylinder
+     real(rkind), parameter :: min_gap_frac = 0.5d0 !! minimum standoff from the cylinder surface,
+                                                     !! enforced by a hard clamp (fraction of dx) since
+                                                     !! the soft PST repulsion from the ghost-wall rings
+                                                     !! alone does not guarantee it (see clamp below)
      logical :: use_structured_layer = .false.!.true.   !! set .false. for disordered-only fill
 
      time = 0.0d0
@@ -981,9 +986,26 @@ subroutine create_particles_bperiodic_cyl
 
      !! ---- 3. Iteratively shift to a blue-noise fluid distribution. The inward
      !! ghost-wall rings (dontshift-flagged, indices nb+1..nb+n_ghost_total) act as
-     !! a static repeller, keeping fluid particles out of the cylinder throughout.
-     do irep = 1, 5
+     !! a static repeller, biasing fluid particles away from the cylinder, but this
+     !! soft repulsion alone does not guarantee no fluid node ends up inside (or
+     !! too close to) the cylinder - a discretely-sampled curved ring of repellers
+     !! doesn't perfectly emulate an infinite flat wall. So after every shifting
+     !! pass, hard-clamp any real fluid node that drifted too close back out to a
+     !! minimum standoff, then let the next pass smooth the correction back in.
+     min_gap_cyl = min_gap_frac*dx
+     do irep = 1, 10
         call iteratively_shift(10)
+
+        !$OMP PARALLEL DO PRIVATE(depth_r,theta_i)
+        do i = nb + n_ghost_total + 1, npfb
+           depth_r = sqrt((rp(i,1)-cyl_x)**2 + (rp(i,2)-cyl_y)**2)
+           if (depth_r < cyl_rad + min_gap_cyl) then
+              theta_i = atan2(rp(i,2)-cyl_y, rp(i,1)-cyl_x)
+              rp(i,1) = cyl_x + (cyl_rad+min_gap_cyl)*cos(theta_i)
+              rp(i,2) = cyl_y + (cyl_rad+min_gap_cyl)*sin(theta_i)
+           end if
+        end do
+        !$OMP END PARALLEL DO
      end do
 
      !! ---- 3a. Strip the temporary ghost-wall rings: compact rp/h, removing
