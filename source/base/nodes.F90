@@ -882,7 +882,7 @@ subroutine create_particles_bperiodic_cyl
      real(rkind) :: ns, rp_x, rp_y
      real(rkind) :: cyl_rad, cyl_x, cyl_y, ring_rad, theta, twopi, dist2, excl_rad2
      real(rkind) :: min_gap_cyl, depth_r, theta_i
-     real(rkind), parameter :: seed_noise = 1.0d-2  !! tiny symmetry-breaking jitter (fraction of dx);
+     real(rkind), parameter :: seed_noise = 1.0  !! tiny symmetry-breaking jitter (fraction of dx);
                                                      !! shifting does the real disordering, this just
                                                      !! stops a perfectly uniform lattice locking the
                                                      !! shift force to exactly zero away from the cylinder
